@@ -124,8 +124,13 @@ Configure which Jellyfin devices should trigger ambilight effects and where to s
      - `0` = top-left LED
      - `1` = next LED to the right
      - continue clockwise around the screen
+   - **Strip Direction** - Which way the strip runs from that starting LED, seen from the viewer:
+     - `Clockwise` (default) - e.g. a strip starting top-left that goes right along the top, down the right side, left along the bottom, then up the left side
+     - `Counter-clockwise` - e.g. a strip starting bottom-right that goes up the right side, left along the top, down the left side, then right along the bottom
 6. **Save** - Click the Save button at the bottom
 7. **Repeat** - Add more mappings as needed
+
+> **Note:** Input Position is always counted clockwise from the top-left corner, regardless of Strip Direction. Direction only controls which way the strip runs *away from* that starting LED.
 
 **Important:** The plugin automatically handles device ID variations (e.g., session timestamps) so your mappings will work across multiple playback sessions from the same device.
 

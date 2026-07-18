@@ -755,6 +755,13 @@ the Free Software Foundation, either version 3 of the License, or
                         <label style="display: block; margin-bottom: 0.25em; font-size: 0.9em; opacity: 0.8;">Input Position</label>
                         <input type="number" class="mapping-input-pos emby-input" min="0" is="emby-input" />
                     </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.25em; font-size: 0.9em; opacity: 0.8;">Strip Direction</label>
+                        <select class="mapping-direction emby-select-withcolor emby-select" is="emby-select">
+                            <option value="false">Clockwise</option>
+                            <option value="true">Counter-clockwise</option>
+                        </select>
+                    </div>
                 `;
                 
                 wrapper.appendChild(ledConfig);
@@ -766,6 +773,7 @@ the Free Software Foundation, either version 3 of the License, or
                 wrapper.querySelector('.mapping-left').value = mapping.LeftLedCount || 49;
                 wrapper.querySelector('.mapping-right').value = mapping.RightLedCount || 49;
                 wrapper.querySelector('.mapping-input-pos').value = mapping.InputPosition || 0;
+                wrapper.querySelector('.mapping-direction').value = mapping.ReverseDirection ? 'true' : 'false';
             }
             
             document.getElementById('btnAddMapping').addEventListener('click', function() {
@@ -818,7 +826,8 @@ the Free Software Foundation, either version 3 of the License, or
                                 BottomLedCount: parseInt(row.querySelector('.mapping-bottom').value) || 89,
                                 LeftLedCount: parseInt(row.querySelector('.mapping-left').value) || 49,
                                 RightLedCount: parseInt(row.querySelector('.mapping-right').value) || 49,
-                                InputPosition: parseInt(row.querySelector('.mapping-input-pos').value) || 0
+                                InputPosition: parseInt(row.querySelector('.mapping-input-pos').value) || 0,
+                                ReverseDirection: row.querySelector('.mapping-direction').value === 'true'
                             });
                             seen.add(key);
                         }

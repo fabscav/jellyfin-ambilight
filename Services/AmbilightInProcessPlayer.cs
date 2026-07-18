@@ -300,6 +300,7 @@ public sealed class AmbilightInProcessPlayer : IDisposable
             int inputPosition = mapping.InputPosition;
 
             int rotLeds = totalTgt > 0 ? Math.Abs(inputPosition) % totalTgt : 0;
+            bool reverseLeds = mapping.ReverseDirection;
 
             TimeSpan elapsedBase = TimeSpan.Zero;
             bool lastPaused = false;
@@ -556,9 +557,9 @@ public sealed class AmbilightInProcessPlayer : IDisposable
                 }
 
                 byte[] frameToSend = outFrame;
-                if (rotLeds > 0)
+                if (rotLeds > 0 || reverseLeds)
                 {
-                    frameToSend = RotateLedFrame(outFrame, rotLeds, totalTgt, bytesPerLed);
+                    frameToSend = RemapLedFrame(outFrame, rotLeds, reverseLeds, totalTgt, bytesPerLed);
                 }
 
                 try
@@ -614,25 +615,40 @@ public sealed class AmbilightInProcessPlayer : IDisposable
     }
 
 
-    private static byte[] RotateLedFrame(byte[] frame, int rotationLeds, int totalLeds, int bytesPerLed)
+    /// <summary>
+    /// Maps the extracted frame onto the physical strip.
+    /// </summary>
+    /// <remarks>
+    /// Frames are produced in clockwise order starting at the top-left corner (see
+    /// ComputeLedZones in the extractor). <paramref name="rotationLeds"/> is the index in
+    /// that order of the strip's first LED, and <paramref name="reverse"/> selects which way
+    /// the strip runs from there: forwards (clockwise) or backwards (counter-clockwise).
+    /// </remarks>
+    private static byte[] RemapLedFrame(byte[] frame, int rotationLeds, bool reverse, int totalLeds, int bytesPerLed)
     {
-        if (rotationLeds == 0 || totalLeds == 0)
+        if (totalLeds == 0 || (rotationLeds == 0 && !reverse))
         {
             return frame;
         }
 
-        var rotated = new byte[frame.Length];
+        var remapped = new byte[frame.Length];
 
         for (int i = 0; i < totalLeds; i++)
         {
             int dstStart = i * bytesPerLed;
-            int srcLed = (i + rotationLeds) % totalLeds;
-            int srcStart = srcLed * bytesPerLed;
 
-            Buffer.BlockCopy(frame, srcStart, rotated, dstStart, bytesPerLed);
+            // Walk the frame forwards for a clockwise strip, backwards for a counter-clockwise
+            // one. The modulo can go negative when reversing, so normalise before indexing.
+            int srcLed = (reverse ? rotationLeds - i : rotationLeds + i) % totalLeds;
+            if (srcLed < 0)
+            {
+                srcLed += totalLeds;
+            }
+
+            Buffer.BlockCopy(frame, srcLed * bytesPerLed, remapped, dstStart, bytesPerLed);
         }
 
-        return rotated;
+        return remapped;
     }
 
     /// <summary>

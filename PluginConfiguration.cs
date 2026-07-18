@@ -82,6 +82,16 @@ namespace Jellyfin.Plugin.Ambilight
         public int BottomLedCount { get; set; } = 89;
         public int LeftLedCount { get; set; } = 49;
         public int RightLedCount { get; set; } = 49;
+
+        /// <summary>
+        /// Index (in clockwise order from the top-left corner) of the first LED on the strip.
+        /// </summary>
         public int InputPosition { get; set; } = 0;
+
+        /// <summary>
+        /// Direction the strip runs from <see cref="InputPosition"/>, seen from the viewer.
+        /// False (default) = clockwise. True = counter-clockwise.
+        /// </summary>
+        public bool ReverseDirection { get; set; }
     }
 }

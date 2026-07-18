@@ -361,9 +361,10 @@ public class AmbilightPlaybackService
                 if (Config.Debug)
                 {
                     int totalLeds = mapping.TopLedCount + mapping.BottomLedCount + mapping.LeftLedCount + mapping.RightLedCount;
-                    _logger.LogInformation("[Ambilight] Started player for session {SessionId} → {Host}:{Port} ({Leds} LEDs: T{Top} B{Bottom} L{Left} R{Right})", 
-                        sessionId, mapping.Host, mapping.Port, totalLeds, 
-                        mapping.TopLedCount, mapping.BottomLedCount, mapping.LeftLedCount, mapping.RightLedCount);
+                    _logger.LogInformation("[Ambilight] Started player for session {SessionId} → {Host}:{Port} ({Leds} LEDs: T{Top} B{Bottom} L{Left} R{Right}, start {InputPosition} {Direction})",
+                        sessionId, mapping.Host, mapping.Port, totalLeds,
+                        mapping.TopLedCount, mapping.BottomLedCount, mapping.LeftLedCount, mapping.RightLedCount,
+                        mapping.InputPosition, mapping.ReverseDirection ? "counter-clockwise" : "clockwise");
                 }
             }
             
