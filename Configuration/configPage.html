@@ -50,6 +50,14 @@ the Free Software Foundation, either version 3 of the License, or
                         <div class="fieldDescription">When enabled, ambilight data is automatically extracted when new videos are added to non-excluded libraries.</div>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AmbilightEdgeWeightedExtraction" type="checkbox" is="emby-checkbox" />
+                            <span>Legacy edge-weighted extraction</span>
+                        </label>
+                        <div class="fieldDescription">Off by default: each LED zone is a plain average of its pixels, computed in linear light, so dark scenes stay dark. When enabled, zone colors are instead weighted toward high-contrast pixels, which makes dark scenes read much brighter. Changing this requires re-extracting existing items — previously extracted files are not converted.</div>
+                    </div>
+
                     <div class="selectContainer">
                         <label class="selectLabel" for="ExtractionPriority">Extraction priority</label>
                         <select is="emby-select" id="ExtractionPriority" class="emby-select-withcolor emby-select">
@@ -161,7 +169,7 @@ the Free Software Foundation, either version 3 of the License, or
                         <label class="inputLabel inputLabelUnfocused" for="AmbilightGamma">Base gamma</label>
                         <input id="AmbilightGamma" type="number" is="emby-input" step="0.1" />
                         <div class="fieldDescription">
-                            Overall gamma curve (default 2.2). Higher values make mid-tones and highlights darker and more contrasty; lower values make the image brighter but can wash out detail.
+                            Overall gamma curve (default 1.5). Higher values make mid-tones darker and more contrasty; lower values make them brighter but can wash out detail. With scene-adaptive brightness enabled this curve is inverted into a lift, and higher values brighten instead.
                         </div>
                     </div>
 
@@ -174,10 +182,26 @@ the Free Software Foundation, either version 3 of the License, or
                     </div>
 
                     <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AmbilightBrightness">Brightness</label>
+                        <input id="AmbilightBrightness" type="number" is="emby-input" step="0.05" />
+                        <div class="fieldDescription">
+                            Flat output multiplier (default 1.0). 1.0 sends the picture's own brightness to the strip; lower dims it uniformly. Ignored when scene-adaptive brightness is enabled.
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AmbilightAutoBrightness" type="checkbox" is="emby-checkbox" />
+                            <span>Legacy scene-adaptive brightness</span>
+                        </label>
+                        <div class="fieldDescription">Off by default. When enabled, the plugin boosts each frame toward a fixed average brightness and lifts dark scenes with an inverted gamma curve. This keeps the strip lit during dark content, at the cost of no longer matching what is on screen.</div>
+                    </div>
+
+                    <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="AmbilightBrightnessTarget">Brightness target</label>
                         <input id="AmbilightBrightnessTarget" type="number" is="emby-input" step="1" />
                         <div class="fieldDescription">
-                            Target average LED brightness (default 60). Higher values make the overall effect brighter; lower values dim the strip while still adapting per scene.
+                            Target average LED brightness (default 60), used only when scene-adaptive brightness is enabled. Higher values make the overall effect brighter.
                         </div>
                     </div>
 
@@ -351,7 +375,10 @@ the Free Software Foundation, either version 3 of the License, or
                         document.querySelector('#AmbilightRightLedCount').value = config.AmbilightRightLedCount;
                         document.querySelector('#AmbilightGamma').value = config.AmbilightGamma;
                         document.querySelector('#AmbilightSaturation').value = config.AmbilightSaturation;
+                        document.querySelector('#AmbilightBrightness').value = config.AmbilightBrightness;
                         document.querySelector('#AmbilightBrightnessTarget').value = config.AmbilightBrightnessTarget;
+                        document.querySelector('#AmbilightEdgeWeightedExtraction').checked = config.AmbilightEdgeWeightedExtraction === true;
+                        document.querySelector('#AmbilightAutoBrightness').checked = config.AmbilightAutoBrightness === true;
 
                         // Per-channel gamma and boosts
                         document.querySelector('#AmbilightGammaRed').value = config.AmbilightGammaRed;
@@ -391,7 +418,10 @@ the Free Software Foundation, either version 3 of the License, or
                     config.AmbilightRightLedCount = document.querySelector('#AmbilightRightLedCount').value;
                     config.AmbilightGamma = document.querySelector('#AmbilightGamma').value;
                     config.AmbilightSaturation = document.querySelector('#AmbilightSaturation').value;
+                    config.AmbilightBrightness = document.querySelector('#AmbilightBrightness').value;
                     config.AmbilightBrightnessTarget = document.querySelector('#AmbilightBrightnessTarget').value;
+                    config.AmbilightEdgeWeightedExtraction = document.querySelector('#AmbilightEdgeWeightedExtraction').checked;
+                    config.AmbilightAutoBrightness = document.querySelector('#AmbilightAutoBrightness').checked;
 
                     config.AmbilightGammaRed = document.querySelector('#AmbilightGammaRed').value;
                     config.AmbilightGammaGreen = document.querySelector('#AmbilightGammaGreen').value;

@@ -39,10 +39,40 @@ namespace Jellyfin.Plugin.Ambilight
         /// Higher values = smoother but more lag; lower values = more responsive but can flicker.
         /// </summary>
         public double AmbilightSmoothSeconds { get; set; } = 0.12;
-        public double AmbilightGamma { get; set; } = 2.2;
+        /// <summary>
+        /// Applied as pow(x, gamma) — values above 1 darken, matching HyperHDR's user gamma.
+        /// When <see cref="AmbilightAutoBrightness"/> is enabled this is instead used as the base for
+        /// the legacy scene-adaptive lift, where higher values brighten.
+        /// </summary>
+        public double AmbilightGamma { get; set; } = 1.5;
         public double AmbilightSaturation { get; set; } = 1.0;
+
+        /// <summary>
+        /// Flat output multiplier applied when <see cref="AmbilightAutoBrightness"/> is disabled.
+        /// </summary>
+        public double AmbilightBrightness { get; set; } = 1.0;
+
+        /// <summary>
+        /// Target mean luminance (0-255) for the legacy auto-gain loop.
+        /// Only read when <see cref="AmbilightAutoBrightness"/> is enabled.
+        /// </summary>
         public double AmbilightBrightnessTarget { get; set; } = 60.0;
-        
+
+        /// <summary>
+        /// When true, zone colors are picked with the legacy Sobel edge-detection weighting instead of a
+        /// plain mean in linear light. The edge weighting biases each zone toward high-contrast pixels,
+        /// which makes dark scenes read far too bright. Changing this requires re-extracting existing items.
+        /// </summary>
+        public bool AmbilightEdgeWeightedExtraction { get; set; } = false;
+
+        /// <summary>
+        /// When true, restores the legacy scene-adaptive brightness behaviour: a gamma curve that lifts
+        /// harder as the frame darkens, plus an auto-gain loop driving each frame toward
+        /// <see cref="AmbilightBrightnessTarget"/>.
+        /// </summary>
+        public bool AmbilightAutoBrightness { get; set; } = false;
+
+
         public double AmbilightGammaRed { get; set; } = 1.0;
         public double AmbilightGammaGreen { get; set; } = 1.0;
         public double AmbilightGammaBlue { get; set; } = 1.0;

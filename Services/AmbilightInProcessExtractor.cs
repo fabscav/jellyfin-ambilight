@@ -31,6 +31,32 @@ public sealed class AmbilightInProcessExtractor
     private const int ExtractWidth = 320;
     private const int ExtractHeight = 180;
 
+    // sRGB transfer function tables. Averaging must happen in linear light: because the sRGB
+    // encoding is concave, the mean of encoded values always decodes brighter than the true mean,
+    // and the error peaks on zones mixing dark pixels with highlights. HyperHDR does the same
+    // (ImageColorAveraging::calcMulticolorForLeds).
+    private static readonly float[] SrgbToLinear = BuildSrgbToLinear();
+
+    private static float[] BuildSrgbToLinear()
+    {
+        var lut = new float[256];
+        for (int i = 0; i < 256; i++)
+        {
+            float v = i / 255.0f;
+            lut[i] = v <= 0.04045f ? v / 12.92f : MathF.Pow((v + 0.055f) / 1.055f, 2.4f);
+        }
+        return lut;
+    }
+
+    private static byte LinearToSrgbByte(float linear)
+    {
+        linear = Math.Clamp(linear, 0.0f, 1.0f);
+        float encoded = linear <= 0.0031308f
+            ? linear * 12.92f
+            : 1.055f * MathF.Pow(linear, 1.0f / 2.4f) - 0.055f;
+        return (byte)Math.Clamp((int)MathF.Round(encoded * 255.0f), 0, 255);
+    }
+
     public AmbilightInProcessExtractor(ILogger<AmbilightInProcessExtractor> logger, PluginConfiguration config)
     {
         _logger = logger;
@@ -284,6 +310,7 @@ public sealed class AmbilightInProcessExtractor
             ushort rightCount = (ushort)Math.Max(0, cfg.AmbilightRightLedCount);
             byte fmt = 0; // RGB only
             int bytesPerLed = 3;
+            bool edgeWeighted = cfg.AmbilightEdgeWeightedExtraction;
             var zones = ComputeLedZones(ExtractWidth, ExtractHeight, topCount, bottomCount, leftCount, rightCount);
             int ledsPerFrame = zones.Count;
             if (ledsPerFrame == 0)
@@ -375,7 +402,7 @@ public sealed class AmbilightInProcessExtractor
                 writer.Write(tsUs);
 
                 // Compute colors for each zone
-                ComputeFrameColors(frameBuffer, ExtractWidth, ExtractHeight, zoning, zoneColors);
+                ComputeFrameColors(frameBuffer, ExtractWidth, ExtractHeight, zoning, zoneColors, edgeWeighted);
                 writer.Write(zoneColors);
 
                 frameIndex++;
@@ -540,7 +567,8 @@ public sealed class AmbilightInProcessExtractor
         int width,
         int height,
         (int x1, int y1, int x2, int y2)[] zones,
-        byte[] output)
+        byte[] output,
+        bool edgeWeighted)
     {
         const int bytesPerLed = 3;
 
@@ -561,14 +589,55 @@ public sealed class AmbilightInProcessExtractor
                 continue;
             }
 
-            // Extract edge-dominant color (matching Rust implementation)
-            var (rOut, gOut, bOut) = ExtractEdgeDominantColor(frame, width, height, x1, y1, x2, y2);
+            var (rOut, gOut, bOut) = edgeWeighted
+                ? ExtractEdgeDominantColor(frame, width, height, x1, y1, x2, y2)
+                : ExtractLinearMeanColor(frame, width, x1, y1, x2, y2);
 
             int outBase = i * bytesPerLed;
             output[outBase] = rOut;
             output[outBase + 1] = gOut;
             output[outBase + 2] = bOut;
         }
+    }
+
+    /// <summary>
+    /// Unweighted mean of every pixel in the zone, taken in linear light. This is the picture-extending
+    /// behaviour: a dark zone averages dark, and a black frame produces black LEDs.
+    /// </summary>
+    private static (byte r, byte g, byte b) ExtractLinearMeanColor(
+        byte[] frame,
+        int frameWidth,
+        int x1,
+        int y1,
+        int x2,
+        int y2)
+    {
+        double rSum = 0.0, gSum = 0.0, bSum = 0.0;
+        int count = 0;
+
+        for (int yy = y1; yy < y2; yy++)
+        {
+            int rowBase = yy * frameWidth * 3;
+            for (int xx = x1; xx < x2; xx++)
+            {
+                int idx = rowBase + xx * 3;
+                rSum += SrgbToLinear[frame[idx]];
+                gSum += SrgbToLinear[frame[idx + 1]];
+                bSum += SrgbToLinear[frame[idx + 2]];
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            return (0, 0, 0);
+        }
+
+        return (
+            LinearToSrgbByte((float)(rSum / count)),
+            LinearToSrgbByte((float)(gSum / count)),
+            LinearToSrgbByte((float)(bSum / count))
+        );
     }
 
     /// <summary>

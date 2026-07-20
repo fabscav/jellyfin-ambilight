@@ -289,6 +289,8 @@ public sealed class AmbilightInProcessPlayer : IDisposable
             float gammaBase = (float)cfg.AmbilightGamma;
             float saturation = (float)cfg.AmbilightSaturation;
             float brightnessTarget = (float)cfg.AmbilightBrightnessTarget;
+            bool autoBrightness = cfg.AmbilightAutoBrightness;
+            float userBrightness = (float)cfg.AmbilightBrightness;
             // Guard per-channel gamma against invalid/unstable values from persisted config.
             float gammaRed = ClampF((float)cfg.AmbilightGammaRed, 0.1f, 5.0f);
             float gammaGreen = ClampF((float)cfg.AmbilightGammaGreen, 0.1f, 5.0f);
@@ -427,23 +429,39 @@ public sealed class AmbilightInProcessPlayer : IDisposable
 
                 var raw = frames[frameIndex];
 
-                // avg luminance
-                float sumLum = 0f;
-                int countPix = 0;
-                int idx = 0;
-                while (idx + 2 < raw.Length)
+                // Mean frame luminance only feeds the legacy auto-brightness stages; skip the pass otherwise.
+                float avgLum = 0f;
+                if (autoBrightness)
                 {
-                    float r = raw[idx];
-                    float g = raw[idx + 1];
-                    float b = raw[idx + 2];
-                    float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-                    sumLum += lum;
-                    countPix++;
-                    idx += bytesPerLed;
+                    float sumLum = 0f;
+                    int countPix = 0;
+                    int idx = 0;
+                    while (idx + 2 < raw.Length)
+                    {
+                        float r = raw[idx];
+                        float g = raw[idx + 1];
+                        float b = raw[idx + 2];
+                        float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+                        sumLum += lum;
+                        countPix++;
+                        idx += bytesPerLed;
+                    }
+                    avgLum = countPix > 0 ? sumLum / countPix : 0f;
                 }
-                float avgLum = countPix > 0 ? sumLum / countPix : 0f;
-                float gammaAdj = ClampF(gammaBase * (1.0f - (avgLum / 255.0f) * 0.6f), 1.0f, 3.0f);
-                float invGamma = 1.0f / gammaAdj;
+
+                // Default: apply the user's gamma directly, so exponents above 1 darken (as HyperHDR's
+                // applyUserGamma does). Legacy mode inverts it into a lift that strengthens as the
+                // frame darkens, which is what made dark scenes glow.
+                float outputGamma;
+                if (autoBrightness)
+                {
+                    float gammaAdj = ClampF(gammaBase * (1.0f - (avgLum / 255.0f) * 0.6f), 1.0f, 3.0f);
+                    outputGamma = 1.0f / gammaAdj;
+                }
+                else
+                {
+                    outputGamma = ClampF(gammaBase, 0.1f, 5.0f);
+                }
 
                 float frameDtS;
                 if (frameIndex == 0)
@@ -482,11 +500,22 @@ public sealed class AmbilightInProcessPlayer : IDisposable
                 float bTarget = Math.Max(1.0f, brightnessTarget);
                 float minB = Math.Max(0.0f, minLedBrightness);
 
-                float brightnessFactor = 1.0f;
-                if (avgLum > 1.0f)
+                // Default: a flat user multiplier. Legacy mode drives every frame toward a fixed mean
+                // luminance, which fights darkness by design.
+                float brightnessFactorAdj;
+                if (autoBrightness)
                 {
-                    float factor = (bTarget / avgLum) * 0.7f + 0.3f;
-                    brightnessFactor = ClampF(factor, 0.05f, 2.5f);
+                    float brightnessFactor = 1.0f;
+                    if (avgLum > 1.0f)
+                    {
+                        float factor = (bTarget / avgLum) * 0.7f + 0.3f;
+                        brightnessFactor = ClampF(factor, 0.05f, 2.5f);
+                    }
+                    brightnessFactorAdj = ClampF(brightnessFactor, 0.3f, 1.8f);
+                }
+                else
+                {
+                    brightnessFactorAdj = ClampF(userBrightness, 0.0f, 5.0f);
                 }
 
                 for (int t = 0; t < totalTgt; t++)
@@ -512,11 +541,10 @@ public sealed class AmbilightInProcessPlayer : IDisposable
                     float gSat = ClampF(avgIntensity + (gLin - avgIntensity) * sUser, 0.0f, 1.0f);
                     float bSat = ClampF(avgIntensity + (bLin - avgIntensity) * sUser, 0.0f, 1.0f);
 
-                    float rG = ClampF((float)MathF.Pow(rSat, invGamma), 0.0f, 1.0f);
-                    float gG = ClampF((float)MathF.Pow(gSat, invGamma), 0.0f, 1.0f);
-                    float bG = ClampF((float)MathF.Pow(bSat, invGamma), 0.0f, 1.0f);
+                    float rG = ClampF((float)MathF.Pow(rSat, outputGamma), 0.0f, 1.0f);
+                    float gG = ClampF((float)MathF.Pow(gSat, outputGamma), 0.0f, 1.0f);
+                    float bG = ClampF((float)MathF.Pow(bSat, outputGamma), 0.0f, 1.0f);
 
-                    float brightnessFactorAdj = ClampF(brightnessFactor, 0.3f, 1.8f);
                     float rF = rG * brightnessFactorAdj * 255.0f;
                     float gF = gG * brightnessFactorAdj * 255.0f;
                     float bF = bG * brightnessFactorAdj * 255.0f;
