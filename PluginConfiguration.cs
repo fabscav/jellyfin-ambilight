@@ -66,6 +66,13 @@ namespace Jellyfin.Plugin.Ambilight
         public bool AmbilightEdgeWeightedExtraction { get; set; } = false;
 
         /// <summary>
+        /// When true, letterbox and pillarbox bars are detected per frame and the LED zones are inset to
+        /// sit on the picture rather than the bars. Applies to both extraction modes — neither handles
+        /// bars on its own. Changing this requires re-extracting existing items.
+        /// </summary>
+        public bool AmbilightLetterboxDetection { get; set; } = true;
+
+        /// <summary>
         /// When true, restores the legacy scene-adaptive brightness behaviour: a gamma curve that lifts
         /// harder as the frame darkens, plus an auto-gain loop driving each frame toward
         /// <see cref="AmbilightBrightnessTarget"/>.

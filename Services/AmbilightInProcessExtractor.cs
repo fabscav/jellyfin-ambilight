@@ -311,6 +311,8 @@ public sealed class AmbilightInProcessExtractor
             byte fmt = 0; // RGB only
             int bytesPerLed = 3;
             bool edgeWeighted = cfg.AmbilightEdgeWeightedExtraction;
+            bool letterboxDetection = cfg.AmbilightLetterboxDetection;
+            var borderTracker = letterboxDetection ? new BlackBorderTracker() : null;
             var zones = ComputeLedZones(ExtractWidth, ExtractHeight, topCount, bottomCount, leftCount, rightCount);
             int ledsPerFrame = zones.Count;
             if (ledsPerFrame == 0)
@@ -400,6 +402,27 @@ public sealed class AmbilightInProcessExtractor
                 // Calculate timestamp in microseconds using actual video FPS (matching Rust implementation)
                 ulong tsUs = (ulong)(frameIndex * 1_000_000.0 / fps);
                 writer.Write(tsUs);
+
+                // Re-lay the zones whenever the tracked letterbox/pillarbox border changes. The tracker's
+                // hysteresis makes this rare, so the rebuild cost is negligible.
+                if (borderTracker != null && borderTracker.ProcessFrame(frameBuffer, ExtractWidth, ExtractHeight))
+                {
+                    var border = borderTracker.Current;
+                    // An unknown border carries no information (fully black frame) – keep the full frame.
+                    int tb = border.Unknown ? 0 : border.TopBottom;
+                    int lr = border.Unknown ? 0 : border.LeftRight;
+                    zoning = ComputeLedZones(ExtractWidth, ExtractHeight, topCount, bottomCount, leftCount, rightCount, tb, lr).ToArray();
+
+                    if (cfg.Debug)
+                    {
+                        _logger.LogInformation(
+                            "[Ambilight] Extractor: border changed at frame {Frame} – top/bottom {TopBottom}px, left/right {LeftRight}px (unknown: {Unknown})",
+                            frameIndex,
+                            tb,
+                            lr,
+                            border.Unknown);
+                    }
+                }
 
                 // Compute colors for each zone
                 ComputeFrameColors(frameBuffer, ExtractWidth, ExtractHeight, zoning, zoneColors, edgeWeighted);
@@ -503,10 +526,34 @@ public sealed class AmbilightInProcessExtractor
         }
     }
 
-    private static List<(int x1, int y1, int x2, int y2)> ComputeLedZones(int width, int height, ushort top, ushort bottom, ushort left, ushort right)
+    /// <summary>
+    /// Lays the LED zones out over the frame, optionally inset by a detected letterbox/pillarbox border.
+    /// The border is applied as an inset on the mapping region rather than a crop of the image, matching
+    /// HyperHDR's ImageColorAveraging (sources/base/ImageColorAveraging.cpp:68-71). Zone count and
+    /// ordering are unaffected, so the AMb2 header stays valid.
+    /// </summary>
+    private static List<(int x1, int y1, int x2, int y2)> ComputeLedZones(
+        int width,
+        int height,
+        ushort top,
+        ushort bottom,
+        ushort left,
+        ushort right,
+        int topBottomBorder = 0,
+        int leftRightBorder = 0)
     {
-        int w = width;
-        int h = height;
+        // Never let a near-black frame collapse the mapping region. Beyond the flat 40% cap, the region
+        // must also stay wide/tall enough to give every LED at least one pixel — otherwise the zones
+        // degenerate to zero width and those LEDs silently go black.
+        int minWidth = Math.Max(Math.Max((int)top, (int)bottom), 1);
+        int minHeight = Math.Max(Math.Max((int)left, (int)right), 1);
+        int maxLeftRight = Math.Min((int)(width * 0.4), Math.Max(0, (width - minWidth) / 2));
+        int maxTopBottom = Math.Min((int)(height * 0.4), Math.Max(0, (height - minHeight) / 2));
+        int yOffset = Math.Clamp(topBottomBorder, 0, maxTopBottom);
+        int xOffset = Math.Clamp(leftRightBorder, 0, maxLeftRight);
+
+        int w = width - 2 * xOffset;
+        int h = height - 2 * yOffset;
 
         double topSpacing = top > 0 ? (double)w / top : w;
         double bottomSpacing = bottom > 0 ? (double)w / bottom : w;
@@ -532,7 +579,7 @@ public sealed class AmbilightInProcessExtractor
         {
             int x1 = (int)(i * w / (double)top);
             int x2 = (int)((i + 1) * w / (double)top);
-            zones.Add((x1, 0, x2, topH));
+            zones.Add((xOffset + x1, yOffset, xOffset + x2, yOffset + topH));
         }
 
         // Right: top → bottom
@@ -540,7 +587,7 @@ public sealed class AmbilightInProcessExtractor
         {
             int y1 = (int)(i * h / (double)right);
             int y2 = (int)((i + 1) * h / (double)right);
-            zones.Add((w - rightW, y1, w, y2));
+            zones.Add((xOffset + w - rightW, yOffset + y1, xOffset + w, yOffset + y2));
         }
 
         // Bottom: right → left
@@ -548,7 +595,7 @@ public sealed class AmbilightInProcessExtractor
         {
             int x2 = (int)(w - i * w / (double)bottom);
             int x1 = (int)(w - (i + 1) * w / (double)bottom);
-            zones.Add((x1, h - bottomH, x2, h));
+            zones.Add((xOffset + x1, yOffset + h - bottomH, xOffset + x2, yOffset + h));
         }
 
         // Left: bottom → top
@@ -556,7 +603,7 @@ public sealed class AmbilightInProcessExtractor
         {
             int y2 = (int)(h - i * h / (double)left);
             int y1 = (int)(h - (i + 1) * h / (double)left);
-            zones.Add((0, y1, leftW, y2));
+            zones.Add((xOffset, yOffset + y1, xOffset + leftW, yOffset + y2));
         }
 
         return zones;
