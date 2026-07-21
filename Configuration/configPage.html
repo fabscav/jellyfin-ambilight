@@ -169,15 +169,25 @@ the Free Software Foundation, either version 3 of the License, or
                         <label class="inputLabel inputLabelUnfocused" for="AmbilightSmoothSeconds">Smoothing window (seconds)</label>
                         <input id="AmbilightSmoothSeconds" type="number" is="emby-input" step="0.01" />
                         <div class="fieldDescription">
-                            Time window for temporal smoothing between frames, in seconds (default 0.12). Set to 0 to disable smoothing. Higher values = smoother but more delayed; lower values = more responsive but can flicker on rapid cuts.
+                            Time window for temporal smoothing between frames, in seconds (default 0.06). Set to 0 to disable
+                            smoothing. Higher values = smoother but more delayed; lower values = more responsive but can flicker
+                            on rapid cuts.
                         </div>
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightGamma">Base gamma</label>
+                        <label class="inputLabel inputLabelUnfocused" for="AmbilightOutputGamma">Output gamma</label>
+                        <input id="AmbilightOutputGamma" type="number" is="emby-input" step="0.1" />
+                        <div class="fieldDescription">
+                            Overall gamma curve (default 1.5). Higher values make mid-tones darker and more contrasty; lower values make them brighter but can wash out detail. Ignored when legacy scene-adaptive brightness is enabled.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AmbilightGamma">Legacy base gamma</label>
                         <input id="AmbilightGamma" type="number" is="emby-input" step="0.1" />
                         <div class="fieldDescription">
-                            Overall gamma curve (default 1.5). Higher values make mid-tones darker and more contrasty; lower values make them brighter but can wash out detail. With scene-adaptive brightness enabled this curve is inverted into a lift, and higher values brighten instead.
+                            Base for the legacy scene-adaptive curve (default 2.2), which is inverted into a lift — so here higher values brighten. Only used when legacy scene-adaptive brightness is enabled.
                         </div>
                     </div>
 
@@ -193,7 +203,7 @@ the Free Software Foundation, either version 3 of the License, or
                         <label class="inputLabel inputLabelUnfocused" for="AmbilightBrightness">Brightness</label>
                         <input id="AmbilightBrightness" type="number" is="emby-input" step="0.05" />
                         <div class="fieldDescription">
-                            Flat output multiplier (default 1.0). 1.0 sends the picture's own brightness to the strip; lower dims it uniformly. Ignored when scene-adaptive brightness is enabled.
+                            Flat output multiplier (default 1.0). 1.0 sends the picture's own brightness to the strip; lower dims it uniformly.
                         </div>
                     </div>
 
@@ -202,15 +212,23 @@ the Free Software Foundation, either version 3 of the License, or
                             <input id="AmbilightAutoBrightness" type="checkbox" is="emby-checkbox" />
                             <span>Legacy scene-adaptive brightness</span>
                         </label>
-                        <div class="fieldDescription">Off by default. When enabled, the plugin boosts each frame toward a fixed average brightness and lifts dark scenes with an inverted gamma curve. This keeps the strip lit during dark content, at the cost of no longer matching what is on screen.</div>
+                        <div class="fieldDescription">Off by default. When enabled, dark scenes are lifted with an inverted gamma curve based on the legacy base gamma. This keeps the strip lit during dark content, at the cost of no longer matching what is on screen.</div>
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightBrightnessTarget">Brightness target</label>
-                        <input id="AmbilightBrightnessTarget" type="number" is="emby-input" step="1" />
-                        <div class="fieldDescription">
-                            Target average LED brightness (default 60), used only when scene-adaptive brightness is enabled. Higher values make the overall effect brighter.
-                        </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AmbilightEdgeWeightedExtraction" type="checkbox" is="emby-checkbox" />
+                            <span>Legacy edge-weighted extraction</span>
+                        </label>
+                        <div class="fieldDescription">Off by default. When enabled, each zone's color is biased toward high-contrast pixels and rescaled by its brightness relative to the frame, instead of a plain average in linear light. Makes dark scenes read brighter. Requires re-extracting existing items.</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AmbilightLetterboxDetection" type="checkbox" is="emby-checkbox" />
+                            <span>Letterbox detection</span>
+                        </label>
+                        <div class="fieldDescription">On by default. Detects black bars and insets the LED zones onto the picture, so scope films don't drive the top and bottom edges black. Requires re-extracting existing items.</div>
                     </div>
 
                     <div class="inputContainer">
@@ -234,38 +252,6 @@ the Free Software Foundation, either version 3 of the License, or
                         <input id="AmbilightGammaBlue" type="number" is="emby-input" step="0.1" />
                         <div class="fieldDescription">
                             Per‑channel gamma for blue. Higher = darker blues; lower = brighter blues. Increase this if the image looks too blue.
-                        </div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightRedBoost">Red boost</label>
-                        <input id="AmbilightRedBoost" type="number" is="emby-input" step="0.1" />
-                        <div class="fieldDescription">
-                            Minimum floor for red when LEDs are dim (used with Min LED brightness). Higher values keep red visible in dark scenes; too high can tint blacks towards red.
-                        </div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightGreenBoost">Green boost</label>
-                        <input id="AmbilightGreenBoost" type="number" is="emby-input" step="0.1" />
-                        <div class="fieldDescription">
-                            Minimum floor for green when LEDs are dim. Higher values keep green present in shadows; too high can give a greenish cast to dark areas.
-                        </div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightBlueBoost">Blue boost</label>
-                        <input id="AmbilightBlueBoost" type="number" is="emby-input" step="0.1" />
-                        <div class="fieldDescription">
-                            Minimum floor for blue when LEDs are dim. Higher values keep blue visible in dark scenes; too high makes everything look cold/blue.
-                        </div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="AmbilightMinLedBrightness">Min LED brightness</label>
-                        <input id="AmbilightMinLedBrightness" type="number" is="emby-input" step="0.1" />
-                        <div class="fieldDescription">
-                            Global minimum LED brightness (0 = true black). Higher values prevent LEDs from turning fully off, but combined with color boosts can introduce a color tint in very dark scenes.
                         </div>
                     </div>
 
@@ -345,6 +331,7 @@ the Free Software Foundation, either version 3 of the License, or
                                     <th>Title</th>
                                     <th>Added Date</th>
                                     <th>Status</th>
+                                    <th>Format</th>
                                     <th>Size</th>
                                     <th>Action</th>
                                 </tr>
@@ -373,7 +360,7 @@ the Free Software Foundation, either version 3 of the License, or
                         document.querySelector('#MaxConcurrentExtractions').value = config.MaxConcurrentExtractions || 1;
                         document.querySelector('#HardwareAcceleration').value = config.HardwareAcceleration || 'auto';
                         document.querySelector('#AmbilightDataFolder').value = config.AmbilightDataFolder || '/data/ambilight';
-                        document.querySelector('#AmbilightSmoothSeconds').value = (config.AmbilightSmoothSeconds != null ? config.AmbilightSmoothSeconds : 0.12);
+                        document.querySelector('#AmbilightSmoothSeconds').value = (config.AmbilightSmoothSeconds != null ? config.AmbilightSmoothSeconds : 0.06);
                         document.querySelector('#Debug').checked = config.Debug === true;
 
                         // Extraction LED configuration
@@ -383,20 +370,16 @@ the Free Software Foundation, either version 3 of the License, or
                         document.querySelector('#AmbilightRightLedCount').value = config.AmbilightRightLedCount;
                         document.querySelector('#AmbilightGamma').value = config.AmbilightGamma;
                         document.querySelector('#AmbilightSaturation').value = config.AmbilightSaturation;
-                        document.querySelector('#AmbilightBrightness').value = config.AmbilightBrightness;
-                        document.querySelector('#AmbilightBrightnessTarget').value = config.AmbilightBrightnessTarget;
+                        document.querySelector('#AmbilightOutputGamma').value = (config.AmbilightOutputGamma != null ? config.AmbilightOutputGamma : 1.5);
+                        document.querySelector('#AmbilightBrightness').value = (config.AmbilightBrightness != null ? config.AmbilightBrightness : 1.0);
                         document.querySelector('#AmbilightEdgeWeightedExtraction').checked = config.AmbilightEdgeWeightedExtraction === true;
                         document.querySelector('#AmbilightLetterboxDetection').checked = config.AmbilightLetterboxDetection !== false;
                         document.querySelector('#AmbilightAutoBrightness').checked = config.AmbilightAutoBrightness === true;
 
-                        // Per-channel gamma and boosts
+                        // Per-channel gamma
                         document.querySelector('#AmbilightGammaRed').value = config.AmbilightGammaRed;
                         document.querySelector('#AmbilightGammaGreen').value = config.AmbilightGammaGreen;
                         document.querySelector('#AmbilightGammaBlue').value = config.AmbilightGammaBlue;
-                        document.querySelector('#AmbilightRedBoost').value = config.AmbilightRedBoost;
-                        document.querySelector('#AmbilightGreenBoost').value = config.AmbilightGreenBoost;
-                        document.querySelector('#AmbilightBlueBoost').value = config.AmbilightBlueBoost;
-                        document.querySelector('#AmbilightMinLedBrightness').value = config.AmbilightMinLedBrightness;
 
                         // Populate excluded libraries and device list for mappings
                         loadLibraries(config);
@@ -417,7 +400,7 @@ the Free Software Foundation, either version 3 of the License, or
                     config.MaxConcurrentExtractions = parseInt(document.querySelector('#MaxConcurrentExtractions').value) || 1;
                     config.HardwareAcceleration = document.querySelector('#HardwareAcceleration').value || 'auto';
                     config.AmbilightDataFolder = document.querySelector('#AmbilightDataFolder').value || '/data/ambilight';
-                    config.AmbilightSmoothSeconds = parseFloat(document.querySelector('#AmbilightSmoothSeconds').value || '0.12');
+                    config.AmbilightSmoothSeconds = parseFloat(document.querySelector('#AmbilightSmoothSeconds').value || '0.06');
                     config.Debug = document.querySelector('#Debug').checked === true;
 
                     // Extraction LED configuration
@@ -427,19 +410,16 @@ the Free Software Foundation, either version 3 of the License, or
                     config.AmbilightRightLedCount = document.querySelector('#AmbilightRightLedCount').value;
                     config.AmbilightGamma = document.querySelector('#AmbilightGamma').value;
                     config.AmbilightSaturation = document.querySelector('#AmbilightSaturation').value;
-                    config.AmbilightBrightness = document.querySelector('#AmbilightBrightness').value;
-                    config.AmbilightBrightnessTarget = document.querySelector('#AmbilightBrightnessTarget').value;
+                    config.AmbilightOutputGamma = parseFloat(document.querySelector('#AmbilightOutputGamma').value || '1.5');
+                    config.AmbilightBrightness = parseFloat(document.querySelector('#AmbilightBrightness').value || '1.0');
                     config.AmbilightEdgeWeightedExtraction = document.querySelector('#AmbilightEdgeWeightedExtraction').checked;
                     config.AmbilightLetterboxDetection = document.querySelector('#AmbilightLetterboxDetection').checked;
                     config.AmbilightAutoBrightness = document.querySelector('#AmbilightAutoBrightness').checked;
 
+                    // Per-channel gamma
                     config.AmbilightGammaRed = document.querySelector('#AmbilightGammaRed').value;
                     config.AmbilightGammaGreen = document.querySelector('#AmbilightGammaGreen').value;
                     config.AmbilightGammaBlue = document.querySelector('#AmbilightGammaBlue').value;
-                    config.AmbilightRedBoost = document.querySelector('#AmbilightRedBoost').value;
-                    config.AmbilightGreenBoost = document.querySelector('#AmbilightGreenBoost').value;
-                    config.AmbilightBlueBoost = document.querySelector('#AmbilightBlueBoost').value;
-                    config.AmbilightMinLedBrightness = document.querySelector('#AmbilightMinLedBrightness').value;
 
                     // Device mappings
                     config.DeviceMappings = collectDeviceMappings();
@@ -574,8 +554,8 @@ the Free Software Foundation, either version 3 of the License, or
                 });
             })();
 
-            // ===== MANAGER TAB LOGIC ===== v1.7.0 - RGB-only extraction
-            console.log('[Ambilight] Config v1.7.0 - RGB-only extraction');
+            // ===== MANAGER TAB LOGIC ===== v2.3.0 - Bright spot colors, scene change snapping
+            console.log('[Ambilight] Config v2.3.0 - Bright spot colors, scene change snapping');
             
             let allVideos = [];
             let currentFilter = '';
@@ -699,7 +679,7 @@ the Free Software Foundation, either version 3 of the License, or
                 wrapper.style.cssText = 'margin-bottom: 1.5em; padding: 1em; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--theme-primary-color);';
                 wrapper.setAttribute('data-mapping-index', index);
                 
-                // Header row with device, host, port, remove
+                // Header row with device, host, remove
                 var headerRow = document.createElement('div');
                 headerRow.style.cssText = 'display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;';
                 
@@ -744,18 +724,6 @@ the Free Software Foundation, either version 3 of the License, or
                 hostInput.style.cssText = 'flex: 2;';
                 headerRow.appendChild(hostInput);
                 
-                // Create port input
-                var portInput = document.createElement('input');
-                portInput.type = 'number';
-                portInput.className = 'mapping-port emby-input';
-                portInput.setAttribute('is', 'emby-input');
-                portInput.placeholder = '19446';
-                portInput.value = mapping.Port || 19446;
-                portInput.min = '1';
-                portInput.max = '65535';
-                portInput.style.cssText = 'flex: 1; max-width: 100px;';
-                headerRow.appendChild(portInput);
-                
                 // Create remove button
                 var removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
@@ -798,6 +766,51 @@ the Free Software Foundation, either version 3 of the License, or
                 `;
                 
                 wrapper.appendChild(ledConfig);
+
+                var gapLength = mapping.GapLength || 0;
+                var gapPosition = mapping.GapPosition || 0;
+                var gapConfigured = gapLength > 0 || gapPosition > 0;
+
+                var gapSection = document.createElement('div');
+                gapSection.style.cssText = 'margin-top: 0.75em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5em;';
+
+                var gapToggle = document.createElement('div');
+                gapToggle.style.cssText = 'cursor: pointer; display: flex; align-items: center; gap: 0.5em; user-select: none; padding: 0.25em 0;';
+                gapToggle.innerHTML = '<span style="font-size: 0.85em; opacity: 0.7;">&#9654;</span><span style="font-size: 0.9em; font-weight: 500;">Gap</span><span style="font-size: 0.8em; opacity: 0.5;">— Physical LED gap (e.g. data cable behind TV stand)</span>';
+
+                var gapBody = document.createElement('div');
+                gapBody.style.cssText = 'display: none; padding-top: 0.5em;';
+                gapBody.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75em;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.25em; font-size: 0.9em; opacity: 0.8;">Gap Length</label>
+                            <input type="number" class="mapping-gap-length emby-input" min="0" is="emby-input" />
+                            <div style="font-size: 0.8em; opacity: 0.6; margin-top: 0.25em;">Number of inactive LEDs (include in the corresponding edge's LED count)</div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.25em; font-size: 0.9em; opacity: 0.8;">Gap Position</label>
+                            <input type="number" class="mapping-gap-position emby-input" min="0" is="emby-input" />
+                            <div style="font-size: 0.8em; opacity: 0.6; margin-top: 0.25em;">LED index where gap starts, counting from 0 at top-left, clockwise (same as Input Position; e.g. Top+Right = start of bottom edge)</div>
+                        </div>
+                    </div>
+                `;
+
+                var gapArrow = gapToggle.querySelector('span');
+                gapToggle.addEventListener('click', function() {
+                    var open = gapBody.style.display !== 'none';
+                    gapBody.style.display = open ? 'none' : 'block';
+                    gapArrow.innerHTML = open ? '&#9654;' : '&#9660;';
+                });
+
+                if (gapConfigured) {
+                    gapBody.style.display = 'block';
+                    gapArrow.innerHTML = '&#9660;';
+                }
+
+                gapSection.appendChild(gapToggle);
+                gapSection.appendChild(gapBody);
+                wrapper.appendChild(gapSection);
+
                 container.appendChild(wrapper);
                 
                 // Set values after elements are added to DOM (required for Jellyfin inputs)
@@ -806,6 +819,8 @@ the Free Software Foundation, either version 3 of the License, or
                 wrapper.querySelector('.mapping-left').value = mapping.LeftLedCount || 49;
                 wrapper.querySelector('.mapping-right').value = mapping.RightLedCount || 49;
                 wrapper.querySelector('.mapping-input-pos').value = mapping.InputPosition || 0;
+                wrapper.querySelector('.mapping-gap-length').value = gapLength;
+                wrapper.querySelector('.mapping-gap-position').value = gapPosition;
             }
             
             document.getElementById('btnAddMapping').addEventListener('click', function() {
@@ -819,7 +834,7 @@ the Free Software Foundation, either version 3 of the License, or
                 }
                 
                 var index = container.children.length;
-                addMappingRow(container, { DeviceIdentifier: '', Host: '', Port: 19446 }, index);
+                addMappingRow(container, { DeviceIdentifier: '', Host: '' }, index);
             });
             
             function collectDeviceMappings() {
@@ -828,7 +843,7 @@ the Free Software Foundation, either version 3 of the License, or
                 
                 var mappings = [];
                 var rows = container.querySelectorAll('[data-mapping-index]');
-                var seen = new Set(); // Track device+host+port combinations
+                var seen = new Set(); // Track device+host combinations
                 
                 rows.forEach(function(row) {
                     var deviceSelect = row.querySelector('.mapping-device');
@@ -836,16 +851,15 @@ the Free Software Foundation, either version 3 of the License, or
                     var deviceOption = deviceSelect.options[deviceSelect.selectedIndex];
                     var deviceName = deviceOption ? deviceOption.textContent.trim() : deviceId;
                     var host = row.querySelector('.mapping-host').value.trim();
-                    var port = parseInt(row.querySelector('.mapping-port').value) || 19446;
                     
                     if (deviceName && host) {
                         // Use the original Jellyfin device id for duplicate detection when available
                         var dedupeKeyBase = (deviceId || deviceName).toLowerCase();
-                        var key = dedupeKeyBase + '|' + host.toLowerCase() + '|' + port;
+                        var key = dedupeKeyBase + '|' + host.toLowerCase();
                         
                         if (seen.has(key)) {
                             var label = deviceName || deviceId;
-                            showToast('Warning: Duplicate mapping ignored - Device \"' + label + '\" → ' + host + ':' + port + ' appears multiple times');
+                            showToast('Warning: Duplicate mapping ignored - Device \"' + label + '\" → ' + host + ' appears multiple times');
                         } else {
                             mappings.push({
                                 // Store the human-readable device name as identifier.
@@ -853,12 +867,13 @@ the Free Software Foundation, either version 3 of the License, or
                                 // even if Jellyfin's internal device ids change.
                                 DeviceIdentifier: deviceName,
                                 Host: host,
-                                Port: port,
                                 TopLedCount: parseInt(row.querySelector('.mapping-top').value) || 89,
                                 BottomLedCount: parseInt(row.querySelector('.mapping-bottom').value) || 89,
                                 LeftLedCount: parseInt(row.querySelector('.mapping-left').value) || 49,
                                 RightLedCount: parseInt(row.querySelector('.mapping-right').value) || 49,
-                                InputPosition: parseInt(row.querySelector('.mapping-input-pos').value) || 0
+                                InputPosition: parseInt(row.querySelector('.mapping-input-pos').value) || 0,
+                                GapLength: parseInt(row.querySelector('.mapping-gap-length').value) || 0,
+                                GapPosition: parseInt(row.querySelector('.mapping-gap-position').value) || 0
                             });
                             seen.add(key);
                         }
@@ -1559,9 +1574,15 @@ the Free Software Foundation, either version 3 of the License, or
                     }
                 }
 
+                var formatText = '-';
+                if (status && status.HasBinary && status.BinaryFormat) {
+                    formatText = '<span style="text-transform:uppercase;font-weight:bold;font-size:0.85em;color:#9ca3af;">' + escapeHtml(status.BinaryFormat) + '</span>';
+                }
+
                 var trContent = '<td style="padding-top:1em;padding-bottom:1em;">' + titleCellHtml + '</td>' +
                     '<td>' + addedDateText + '</td>' +
                     '<td>' + statusHtml + '</td>' +
+                    '<td>' + formatText + '</td>' +
                     '<td>' + sizeText + '</td>' +
                     '<td>' + btnHtml + '</td>';
 

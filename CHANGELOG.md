@@ -2,11 +2,65 @@
 
 All notable changes to the Jellyfin Ambilight Plugin will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Dark scenes no longer glow** — Zone colors are now averaged as a plain unweighted mean **in linear light** rather than in gamma-encoded sRGB. Because the sRGB curve is concave, averaging encoded values always decodes brighter than the true mean, with the error peaking on zones that mix dark pixels with highlights. A dark zone now averages dark, and a black frame produces black LEDs.
+- **Playback gamma is applied directly** — `Output gamma` is applied as `pow(x, gamma)`, so values above 1 darken (matching HyperHDR's user gamma). The previous scene-adaptive curve, which lifted harder as the frame darkened, is now off by default.
+
+### Added
+- **Letterbox and pillarbox detection** (`Letterbox detection`, on by default) — A port of HyperHDR's default border detector plus its hysteresis. LED zones are inset onto the picture instead of sampling the black bars, so scope films no longer drive the top and bottom edges black. Zone count and ordering are unchanged, so the AMb3 header stays valid.
+- **`Brightness`** — Flat output multiplier (default 1.0) applied to every LED. The plugin has had no brightness control since 2.0.0.
+- **`Output gamma`** — New setting (default 1.5) for the direct gamma path. `Legacy base gamma` keeps its old meaning and now applies only under scene-adaptive brightness, so existing saved values are unaffected.
+- **`Legacy scene-adaptive brightness`** (off by default) — Restores the old gamma lift that brightens dark frames.
+- **`Legacy edge-weighted extraction`** (off by default) — Restores Sobel edge detection with Gaussian center weighting and the per-zone luminance rescale.
+
+### Notes
+- Changing `Letterbox detection` or `Legacy edge-weighted extraction` requires **re-extracting** existing items; both affect what is written to the `.bin` file.
+
+## [2.3.0] - 2026-07-21
+
+### Fixed
+- **Improved bright spot colors** — Per-zone luminance scaling now applies gamma correction (power 0.45) and clamps the scale factor to a safe range (0.25–3.0×), preventing oversaturation on bright zones and artificial boost on dark zones. Individual color channels are capped at 255 to prevent clipping.
+
+### Added
+- **Scene change snapping during playback** — When a hard cut is detected (≥40% of LEDs changed between consecutive frames), the temporal smoothing accumulator resets immediately so LED colors snap to the new scene instead of blending from the previous one. Also resets on seek for instant color recovery. Threshold is configurable via `Scene Change Threshold` in plugin settings.
+- **RGBW documentation** — README now documents that RGBW LED strips are not supported through port 19446 and explains the protocol limitation.
+
+## [2.2.0] - 2026-07-20
+
+### Added
+- **LED strip gap configuration** — Per-device `Gap Length` and `Gap Position` settings to handle physical LED strips with a data cable gap at any position. Gap LEDs are zeroed out in the output frame after Input Position rotation, matching HyperHDR's gap feature.
+- **WLED network requirements documentation** — README now documents UDP port 19446, the 490-LED per-packet limit, and why Hyperion raw RGB is used over notifier/UDP realtime.
+
+### Changed
+- **Removed per-device port configuration** — The Port field in device mappings has been removed. The plugin now always targets WLED's Hyperion raw-RGB handler on UDP port 19446, which is hardcoded in WLED and cannot be changed. This eliminates misconfiguration issues where users set the wrong port (e.g. 21324) resulting in no ambilight effects.
+
+## [2.0.0] - 2026-07-20
+
+### Changed
+- **Smoothing window default** — Changed from 0.12s to 0.06s for more responsive color transitions.
+- **Removed Brightness target, Min LED brightness, and R/G/B boost settings** — These settings caused blue color tint in dark scenes. Visual tuning now consists of gamma (global + per-channel), saturation, and smoothing only.
+
 ## [1.7.0] - 2026-03-07
 
 ### Changed
 - **RGB-only extraction pipeline** - Removed the RGBW extraction configuration option and all RGBW extraction/runtime paths so AMb2 generation and playback consistently use RGB (3 channels).
 - **Configuration and docs cleanup** - Removed RGBW references from settings/docs and clarified `Input Position` ordering from the viewer perspective (`0` top-left, then clockwise).
+
+## [1.8.0] - 2026-03-12
+
+### Added
+- **Concurrent extractions** - New setting to allow multiple simultaneous extractions (up to 10). Removed sequential limitations in the scheduled background task.
+- **Stop/cancel extraction** - Stop button during active extractions in the plugin configuration UI. Cancel an ongoing extraction for an item, returning it to pending status.
+- **Queueing mechanics** - Excess extractions triggered manually are queued and show a `Queued` status until a concurrency slot frees up. Queued items can also be cancelled.
+- **Extract Pending batch buttons** - Extract Pending buttons on series and season headers in the Extraction Manager to quickly queue an entire series or season.
+
+### Fixed
+- **Stuck extraction states** - Videos stuck in `Extracting` or `Queued` state due to a server restart now correctly revert to `Pending` on startup.
+
+### Changed
+- **Extraction Manager layout** - Episodes are now explicitly identified with their number in a left-aligned column for better readability within a series hierarchy. Removed redundant "Movie" labels.
 
 ## [1.6.4] - 2026-03-07
 
@@ -35,6 +89,35 @@ All notable changes to the Jellyfin Ambilight Plugin will be documented in this 
 - **Extraction manager storage summary** - Added a total binary disk usage counter in the manager UI with automatic unit formatting (MB/GB/TB).
 - **Version bump and release metadata refresh** - Updated plugin version to `1.6.0` across build and documentation assets, and prepared release notes/manifest metadata for the new release.
 
+## [1.5.9] - 2026-03-03
+
+### Fixed
+- **Improved pause behavior** - When playback is paused, Ambilight now continuously re-sends the last video frame to WLED so the LEDs stay frozen on that frame instead of reverting to the controller's previous effect or color. On resume, playback timing is preserved so Ambilight continues in sync with the video.
+
+## [1.5.8] - 2026-02-27
+
+### Changed
+- **Live device mapping reload** - Device mappings created or edited in the Ambilight settings UI now take effect immediately, without requiring a Jellyfin restart. The playback service reads the latest plugin configuration on each playback event.
+
+## [1.5.7] - 2026-02-27
+
+### Fixed
+- **Device mapping matching** - Device mappings now store the human-readable device name instead of Jellyfin internal device ID. Playback matching uses session DeviceName so mappings remain stable across sessions.
+
+## [1.5.6] - 2026-02-27
+
+### Fixed
+- **Pause/resume ambilight sync** - Ambilight now pauses and resumes in sync with Jellyfin playback.
+
+### Added
+- **Scheduled task retries failed extractions** - Extract Pending Ambilight Data now includes previously failed items for retry.
+- **Improved debug logging for device mappings** - Debug logs show device ID and mappings at play start.
+
+## [1.5.5] - 2026-02-19
+
+### Fixed
+- **Hardware acceleration fix** - Reverted to v1.4.2 approach for VAAPI/QSV. Hardware acceleration for decoding only with simple scale filter chain.
+
 ## [1.0.0.0] - 2026-02-16
 
 ### Added
@@ -47,7 +130,7 @@ All notable changes to the Jellyfin Ambilight Plugin will be documented in this 
 - **Device ID normalization** - Automatic handling of Jellyfin web client device ID timestamps
 - **Real-time playback synchronization** - Pause, resume, and seek support
 - **Loading and failure effects** - Visual feedback when starting playback or on errors
-- **Configurable visual tuning** - Gamma, saturation, brightness, color boosts, and smoothing
+- **Configurable visual tuning** - Gamma, saturation, and smoothing
 - **AMb2 binary format** - Efficient compressed format for ambilight data
 
 ### Technical Details

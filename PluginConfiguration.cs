@@ -38,30 +38,31 @@ namespace Jellyfin.Plugin.Ambilight
         /// Set to 0 to disable smoothing entirely.
         /// Higher values = smoother but more lag; lower values = more responsive but can flicker.
         /// </summary>
-        public double AmbilightSmoothSeconds { get; set; } = 0.12;
+        public double AmbilightSmoothSeconds { get; set; } = 0.06;
         /// <summary>
-        /// Applied as pow(x, gamma) — values above 1 darken, matching HyperHDR's user gamma.
-        /// When <see cref="AmbilightAutoBrightness"/> is enabled this is instead used as the base for
-        /// the legacy scene-adaptive lift, where higher values brighten.
+        /// Base for the legacy scene-adaptive gamma lift, where higher values brighten.
+        /// Only read when <see cref="AmbilightAutoBrightness"/> is enabled; otherwise
+        /// <see cref="AmbilightOutputGamma"/> applies.
         /// </summary>
-        public double AmbilightGamma { get; set; } = 1.5;
+        public double AmbilightGamma { get; set; } = 2.2;
         public double AmbilightSaturation { get; set; } = 1.0;
 
         /// <summary>
-        /// Flat output multiplier applied when <see cref="AmbilightAutoBrightness"/> is disabled.
+        /// Applied as pow(x, gamma) — values above 1 darken, matching HyperHDR's user gamma.
+        /// Used when <see cref="AmbilightAutoBrightness"/> is disabled (the default).
+        /// </summary>
+        public double AmbilightOutputGamma { get; set; } = 1.5;
+
+        /// <summary>
+        /// Flat output multiplier applied to every LED, in both brightness modes.
         /// </summary>
         public double AmbilightBrightness { get; set; } = 1.0;
 
         /// <summary>
-        /// Target mean luminance (0-255) for the legacy auto-gain loop.
-        /// Only read when <see cref="AmbilightAutoBrightness"/> is enabled.
-        /// </summary>
-        public double AmbilightBrightnessTarget { get; set; } = 60.0;
-
-        /// <summary>
-        /// When true, zone colors are picked with the legacy Sobel edge-detection weighting instead of a
-        /// plain mean in linear light. The edge weighting biases each zone toward high-contrast pixels,
-        /// which makes dark scenes read far too bright. Changing this requires re-extracting existing items.
+        /// When true, zone colors are picked with the legacy Sobel edge-detection weighting (plus the
+        /// per-zone luminance rescale) instead of a plain mean in linear light. The edge weighting biases
+        /// each zone toward high-contrast pixels, which makes dark scenes read far too bright.
+        /// Changing this requires re-extracting existing items.
         /// </summary>
         public bool AmbilightEdgeWeightedExtraction { get; set; } = false;
 
@@ -73,22 +74,14 @@ namespace Jellyfin.Plugin.Ambilight
         public bool AmbilightLetterboxDetection { get; set; } = true;
 
         /// <summary>
-        /// When true, restores the legacy scene-adaptive brightness behaviour: a gamma curve that lifts
-        /// harder as the frame darkens, plus an auto-gain loop driving each frame toward
-        /// <see cref="AmbilightBrightnessTarget"/>.
+        /// When true, restores the legacy scene-adaptive gamma curve, which lifts harder as the frame
+        /// darkens. This is what made dark scenes glow; <see cref="AmbilightGamma"/> is its base.
         /// </summary>
         public bool AmbilightAutoBrightness { get; set; } = false;
-
 
         public double AmbilightGammaRed { get; set; } = 1.0;
         public double AmbilightGammaGreen { get; set; } = 1.0;
         public double AmbilightGammaBlue { get; set; } = 1.0;
-        
-        public double AmbilightRedBoost { get; set; } = 0.0;
-        public double AmbilightBlueBoost { get; set; } = 0.0;
-        public double AmbilightGreenBoost { get; set; } = 0.0;
-        
-        public double AmbilightMinLedBrightness { get; set; } = 0.0;
 
         /// <summary>
         /// Libraries (by Id) that should be excluded from extraction.
@@ -99,6 +92,28 @@ namespace Jellyfin.Plugin.Ambilight
         /// Folder where ambilight binary files are stored. Filenames are {ItemId}.bin.
         /// </summary>
         public string AmbilightDataFolder { get; set; } = "/data/ambilight";
+
+        // AMb3 extraction settings
+        /// <summary>
+        /// Number of frames per AMb3 chapter (~2s at 24fps with default 48).
+        /// </summary>
+        public int Amb3ChapterSizeFrames { get; set; } = 48;
+
+        /// <summary>
+        /// Per-LED RGB difference threshold to consider an LED "changed" for delta encoding.
+        /// </summary>
+        public int Amb3DeltaThreshold { get; set; } = 10;
+
+        /// <summary>
+        /// When true, delta chunks fall back to keyframe if average LED change exceeds 50%.
+        /// </summary>
+        public bool Amb3DeltaFallbackToKeyframe { get; set; } = true;
+
+        /// <summary>
+        /// Percentage of LEDs that must change between consecutive frames to trigger a scene change (forces keyframe).
+        /// Default 40 means 40% of LEDs must change significantly. Set to 0 to disable scene change detection.
+        /// </summary>
+        public int Amb3SceneChangeThreshold { get; set; } = 40;
 
         /// <summary>
         /// When true, enables verbose logging for play/pause/seek, binary load, WLED connection and broadcast.
@@ -112,13 +127,14 @@ namespace Jellyfin.Plugin.Ambilight
     {
         public string DeviceIdentifier { get; set; } = string.Empty;
         public string Host { get; set; } = string.Empty;
-        public int Port { get; set; } = 19446;
-        
+
         // LED Layout Configuration (per WLED instance)
         public int TopLedCount { get; set; } = 89;
         public int BottomLedCount { get; set; } = 89;
         public int LeftLedCount { get; set; } = 49;
         public int RightLedCount { get; set; } = 49;
         public int InputPosition { get; set; } = 0;
+        public int GapLength { get; set; } = 0;
+        public int GapPosition { get; set; } = 0;
     }
 }

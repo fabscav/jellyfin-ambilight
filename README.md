@@ -1,6 +1,6 @@
 # Jellyfin Ambilight Plugin
 
-**Version:** 1.8.0
+**Version:** 2.3.0
 
 Transform your Jellyfin viewing experience with synchronized ambient lighting! This plugin automatically creates immersive ambilight effects for your movies and TV shows by controlling WLED-compatible LED strips.
 
@@ -15,6 +15,8 @@ Ambilight creates ambient lighting that matches the colors on your screen edges,
 - **Multi-device support** - Control different LED setups for different playback devices
 - **Customizable** - Adjust colors, brightness, and LED layout to match your setup
 - **Background processing** - Extraction happens automatically without interrupting your viewing
+- **AMb3 compressed format** - New extraction format with Deflate compression, delta encoding, and RLE dedup for significantly smaller files
+- **Backward compatible** - Plays both legacy AMb2 and new AMb3 files transparently
 
 ## Requirements
 
@@ -22,6 +24,33 @@ Ambilight creates ambient lighting that matches the colors on your screen edges,
 - WLED-compatible LED controller
 - LED strips installed around your TV/monitor
 - Docker volume (if running Jellyfin in Docker)
+
+## WLED Network Requirements
+
+The plugin streams raw RGB frames over UDP to WLED's **Hyperion raw-RGB handler on port 19446**. This port is hardcoded in WLED and cannot be changed — the plugin always targets it automatically.
+
+### UDP Packet Size Limit
+
+WLED's UDP handler has a **1472-byte hard limit** per packet (standard UDP MTU). Each LED requires 3 bytes (RGB), so a single packet can carry at most **490 LEDs** (490 × 3 = 1470 bytes).
+
+**For setups with more than 490 total LEDs**, split your strip across **multiple WLED instances**, each handling ≤490 LEDs. For example, an 832-LED strip could be driven by two WLED controllers (e.g., 416 LEDs each), with both mapped to the same Jellyfin device.
+
+### Why Port 19446?
+
+WLED exposes two UDP listeners:
+
+| Port | Handler | Protocol | Notes |
+|------|---------|----------|-------|
+| **19446** | Hyperion raw RGB | Raw bytes, no header | **Optimized for streaming**, zero protocol overhead. Used by this plugin. |
+| 21324 | Notifier / UDP Realtime | Protocol-wrapped (DRGB/DNRGB) | Shares socket with WLED sync, calls `strip.show()` per packet, adds ~100ms latency for large strips. Not suitable for ambilight. |
+
+Port 19446 is the only correct target for real-time ambilight streaming.
+
+### RGBW (White Channel) Not Supported
+
+The plugin sends 3-byte RGB data per LED on port 19446. WLED's Hyperion handler on this port is hardcoded to read exactly 3 bytes per LED and always sets the white channel to 0 — there is no auto-detection of RGBW and no way to send a white value through this port.
+
+RGBW strips (DRGBW protocol) are only supported on port 21324 (Notifier/UDP Realtime), which introduces protocol overhead and ~100ms latency that is unsuitable for real-time ambilight. If you own an RGBW strip, WLED will compute a white channel from the RGB values it receives — this is WLED's responsibility, not the plugin's.
 
 ## Installation
 
@@ -117,15 +146,16 @@ Configure which Jellyfin devices should trigger ambilight effects and where to s
 1. Click **"Add Device Mapping"** to create a new mapping
 2. **Select device** - Choose from your registered Jellyfin devices (e.g., "Living Room TV")
 3. **Enter WLED host** - IP address of your WLED controller (e.g., `192.168.1.100`)
-4. **Set port** - Default: `19446` (WLED's standard UDP port)
-5. **Configure LED layout** for this specific WLED instance:
+4. **Configure LED layout** for this specific WLED instance:
    - **Top/Bottom/Left/Right LED counts** - Number of LEDs on each edge of your screen
    - **Input Position** - Starting index of your LED strip in clockwise order from the viewer perspective:
      - `0` = top-left LED
      - `1` = next LED to the right
      - continue clockwise around the screen
-6. **Save** - Click the Save button at the bottom
-7. **Repeat** - Add more mappings as needed
+   - **Gap Length** - Number of inactive LEDs at the gap position (include in the corresponding edge's LED count). Set to0 for no gap.
+   - **Gap Position** - LED index where the gap starts, counting from 0 at top-left, clockwise (same coordinate system as Input Position). For example, if Top=50 and Right=25, the start of the bottom edge is index75.
+5. **Save** - Click the Save button at the bottom
+6. **Repeat** - Add more mappings as needed
 
 **Important:** The plugin automatically handles device ID variations (e.g., session timestamps) so your mappings will work across multiple playback sessions from the same device.
 
@@ -140,13 +170,10 @@ Configure which Jellyfin devices should trigger ambilight effects and where to s
 
 Fine-tune the appearance and behavior of your ambilight effects:
 
-- **Smoothing window** - Time window for temporal smoothing between frames in seconds (default: 0.12). Set to 0 to disable. Higher values = smoother but more delayed; lower values = more responsive but can flicker on rapid cuts
+- **Smoothing window** - Time window for temporal smoothing between frames in seconds (default: 0.06). Set to 0 to disable. Higher values = smoother but more delayed; lower values = more responsive but can flicker on rapid cuts
 - **Base gamma** - Overall gamma curve (default: 2.2). Higher values make mid-tones and highlights darker
 - **Saturation** - Color saturation multiplier (default: 1.0). Higher = more vivid colors
-- **Brightness target** - Target average LED brightness (default: 60)
 - **Red/Green/Blue gamma** - Per-channel gamma correction to balance colors
-- **Red/Green/Blue boost** - Minimum floor for each color when LEDs are dim
-- **Min LED brightness** - Global minimum LED brightness (0 = true black)
 
 #### Debug
 
@@ -240,9 +267,9 @@ The plugin supports unlimited device-to-WLED mappings:
 3. Perfect for wraparound lighting, ceiling effects, or multi-strip setups
 
 **Example: Theater room with 3 WLED controllers:**
-- Map "Theater Room" → `192.168.1.102:19446` (screen LEDs)
-- Map "Theater Room" → `192.168.1.103:19446` (wall LEDs)
-- Map "Theater Room" → `192.168.1.104:19446` (ceiling LEDs)
+- Map "Theater Room" → `192.168.1.102` (screen LEDs)
+- Map "Theater Room" → `192.168.1.103` (wall LEDs)
+- Map "Theater Room" → `192.168.1.104` (ceiling LEDs)
 
 When playing on "Theater Room", all 3 WLED instances receive synchronized color data!
 
@@ -252,6 +279,28 @@ Ambilight `.bin` files are compressed but can add up:
 
 - Average file size: 10-50 MB per hour of video
 - A 2-hour movie ≈ 20-100 MB
+
+### Binary Format (AMb3)
+
+Starting with v2.0.0, new extractions use the **AMb3** binary format. The plugin automatically detects and plays both AMb2 (legacy) and AMb3 files — no migration required.
+
+**AMb3 advantages over AMb2:**
+- **Deflate compression** — 30-50% smaller files on top of encoding gains
+- **Delta encoding** — only changed LEDs are stored between keyframes (every ~2 seconds)
+- **RLE deduplication** — static scenes (credits, pauses) stored once with a repeat count
+- **Chunk-based structure** — frames grouped into independently compressed chapters
+- **Seeking index** — instant seeking in long files via timestamp→offset index at EOF
+
+**Typical file sizes:**
+| Content type | AMb2 | AMb3 |
+|---|---|---|
+| Typical movie (2h) | ~850 MB | 200-350 MB |
+| Dialogue/slow | ~850 MB | 150-250 MB |
+| Anime (limited animation) | ~850 MB | 100-200 MB |
+
+**AMb3 header (96 bytes):** magic `AMb3`, version, flags (compression, delta, VFR, HDR), duration, total frames, base FPS, LED counts, compression algorithm, quality level, index offset, chunk count.
+
+**Chunk header (32 bytes):** timestamp, chunk type (keyframe/delta/RLE), compressed/uncompressed sizes, frame count, average brightness, flags.
 
 ## Support & Development
 
