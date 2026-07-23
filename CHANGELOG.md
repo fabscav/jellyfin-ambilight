@@ -18,6 +18,22 @@ All notable changes to the Jellyfin Ambilight Plugin will be documented in this 
 ### Notes
 - Changing `Letterbox detection` or `Legacy edge-weighted extraction` requires **re-extracting** existing items; both affect what is written to the `.bin` file.
 
+## [2.4.2] - 2026-07-22
+
+### Fixed
+- **LEDs flickered roughly once per second during normal playback** — Seek detection compared each playback progress report against the *previous* report, so the difference during steady playback was simply the reporting interval (~1s) and always exceeded the 0.5s threshold. Every progress report was therefore treated as a seek. This misclassification dates back to 1.0.0 but was harmless until 2.3.0 added an EMA reset to the seek path, at which point each false seek began discarding the smoothing accumulator and producing a visible jump. Seek detection now compares the client's reported position against the player's own position, which is independent of the reporting interval.
+- **Sync lead was lost on every seek** — `AmbilightSyncLeadSeconds` was applied only when playback started, so any seek left the ambilight running behind the picture by that amount. It is now applied on seek as well.
+- **Scene change snapping used the wrong LED count** — The changed-LED percentage was taken against the target (device mapping) LED count while the count itself was measured over the source frame, skewing the snap rate whenever a `.bin`'s LED counts differed from the mapping's.
+
+## [2.4.0] - 2026-07-22
+
+### Fixed
+- **Mixed library support** — The Extraction Manager now correctly lists items from "mixed movies and shows" libraries. The config page previously filtered libraries to only `movies` and `tvshows` collection types, excluding mixed libraries. The filter has been removed since the API query already specifies `IncludeItemTypes: Movie,Episode`.
+
+### Changed
+- Added centered plugin thumbnail to the README.
+- Updated plugin settings screenshot.
+
 ## [2.3.0] - 2026-07-21
 
 ### Fixed
